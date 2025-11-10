@@ -1,15 +1,10 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-constant-condition */
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-// import { useHistory } from "react-router-dom";
-// import { useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useHistory } from "react-router-dom";
 import logo from "../assets/images/logo.png";
 import logosvg from "../assets/img/logo.svg";
 import IMG01 from "../assets/images/doctors/doctor-thumb-02.jpg";
-// import Dropdown from "react-bootstrap/Dropdown";
-import { useEffect } from "react";
-
 import AOS from "aos";
 import "aos/dist/aos.css";
 import FeatherIcon from "feather-icons-react";
@@ -41,19 +36,22 @@ import { IMG07 } from "../components/patients/doctorprofile/img";
 import NavLinks from "./nav";
 import ImageWithBasePath from "../../core/img/imagewithbasebath";
 import { setDataTheme } from "../../core/data/redux/themeSettingSlice";
-import { useDispatch } from "react-redux";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { base_path } from "../../environment";
+import apiService from "../../config/apiService";
 
 const Header = () => {
+  const history = useHistory();
   const [isScrolled, setIsScrolled] = useState(false);
-  // const history = useHistory();
-  //Aos
-  // const location = useLocation();
   const [searchField, setSearchField] = useState(false);
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const toggleSearch = () => {
     setSearchField(!searchField);
   };
+
   useEffect(() => {
     AOS.init({
       duration: 1200,
@@ -61,12 +59,116 @@ const Header = () => {
     });
   }, []);
 
+  // Fetch user details on component mount
+  useEffect(() => {
+    fetchUserDetails();
+  }, []);
+
+  const fetchUserDetails = async () => {
+    try {
+      // Get user from localStorage
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+
+        // Fetch additional profile details based on role
+        if (parsedUser.role === "DOCTOR") {
+          const response = await apiService.get("/doctors/me");
+          if (response.data.success) {
+            setUserProfile(response.data.data);
+          }
+        } else if (parsedUser.role === "PATIENT") {
+          const response = await apiService.get("/patients/me");
+          if (response.data.success) {
+            setUserProfile(response.data.data);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Call logout API
+      await apiService.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      // Clear local storage
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      // Clear authorization header
+      delete apiService.defaults.headers.common["Authorization"];
+
+      // Redirect to login page
+      history.push("/login");
+    }
+  };
+
+  const getUserDisplayName = () => {
+    if (!user) return "User";
+    return `${user.firstName} ${user.lastName}`;
+  };
+
+  const getUserRole = () => {
+    if (!user) return "";
+    return user.role.charAt(0) + user.role.slice(1).toLowerCase();
+  };
+
+  const getUserAvatar = () => {
+    if (user?.profileImage) {
+      return user.profileImage;
+    }
+
+    // Default avatars based on role
+    if (user?.role === "DOCTOR") {
+      return "assets/img/doctors-dashboard/doctor-profile-img.jpg";
+    }
+    return "assets/img/doctors-dashboard/profile-06.jpg";
+  };
+
+  const getDashboardLink = () => {
+    if (!user) return "/";
+
+    switch (user.role) {
+      case "DOCTOR":
+        return "/doctor/doctor-dashboard";
+      case "PATIENT":
+        return "/patient/dashboard";
+      case "ADMIN":
+        return "/admin/dashboard";
+      default:
+        return "/";
+    }
+  };
+
+  const getProfileLink = () => {
+    if (!user) return "/";
+
+    switch (user.role) {
+      case "DOCTOR":
+        return "/doctor/profile-setting";
+      case "PATIENT":
+        return "/patient/profile";
+      default:
+        return "/";
+    }
+  };
+
   const config = base_path;
   const dispatch = useDispatch();
   const dataTheme = useSelector((state) => state.themeSetting.dataTheme);
+
   const handleDataThemeChange = (theme) => {
     dispatch(setDataTheme(theme));
   };
+
   //mobile menu
   const [change, setChange] = useState(false);
   const [isSideMenu, setSideMenu] = useState("");
@@ -81,7 +183,6 @@ const Header = () => {
   const [sideMenufive, setSideMenufive] = useState("");
   const [menu, setMenu] = useState(false);
 
-  // const [menu1, setMenu1] = useState(false);
   const toggleSidebarthree = (value) => {
     setSideMenuthree(value);
   };
@@ -107,15 +208,7 @@ const Header = () => {
     setSideBooking(value);
   };
 
-  // const mobilemenus = () => {
-  //   setMenu(!true);
-  // };
-
-  // Rest of your code that uses pathnames
-
   let pathnames = window.location.pathname;
-
-  // const [active, setActive] = useState(false);
   const url = pathnames.split("/").slice(0, -1).join("/");
 
   const onHandleMobileMenu = () => {
@@ -129,7 +222,6 @@ const Header = () => {
   };
 
   //nav transparent
-
   const showButton = () => {
     if (window.innerWidth <= 960) {
       setButton(false);
@@ -151,6 +243,7 @@ const Header = () => {
     }
   };
   window.addEventListener("scroll", changeBackground);
+
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.scrollY;
@@ -161,6 +254,59 @@ const Header = () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
+  // User Menu Component
+  const UserMenu = () => (
+    <li className="nav-item dropdown has-arrow logged-item">
+      <a
+        href="#"
+        className="nav-link ps-0"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        <span className="user-img">
+          <ImageWithBasePath
+            className="rounded-circle"
+            src={getUserAvatar()}
+            width={31}
+            alt={getUserDisplayName()}
+          />
+        </span>
+      </a>
+      <div className="dropdown-menu dropdown-menu-end">
+        <div className="user-header">
+          <div className="avatar avatar-sm">
+            <ImageWithBasePath
+              src={getUserAvatar()}
+              alt="User Image"
+              className="avatar-img rounded-circle"
+            />
+          </div>
+          <div className="user-text">
+            <h6>{getUserDisplayName()}</h6>
+            <p className="text-muted mb-0">{getUserRole()}</p>
+          </div>
+        </div>
+        <Link className="dropdown-item" to={getDashboardLink()}>
+          Dashboard
+        </Link>
+        <Link className="dropdown-item" to={getProfileLink()}>
+          Profile Settings
+        </Link>
+        <a
+          className="dropdown-item"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            handleLogout();
+          }}
+        >
+          Logout
+        </a>
+      </div>
+    </li>
+  );
+
   return (
     <>
       {!pathnames.includes("home1") && (
@@ -189,7 +335,7 @@ const Header = () => {
               : "" || pathnames.includes("/Pharmacy-index")
               ? "header header-one"
               : "header header-custom header-fixed inner-header relative"
-          } 
+          }
            ${isScrolled ? 'pharmacy-header' : ''} `}
           style={
             pathnames.includes("/index-6") && navbar
@@ -294,18 +440,16 @@ const Header = () => {
                     <i className="fas fa-times"></i>
                   </Link>
                 </div>
-                  
+
                 <ul
                   className={`main-nav ${
                     pathnames.includes("home4") ? "white-font" : ""
                   }`}
                 >
                   <NavLinks/>
-                  
-                      
                 </ul>
               </div>
-              
+
               {pathnames.includes("/index-6") ? (
                 <ul className="nav header-navbar-rht">
                   <li className="nav-item">
@@ -334,6 +478,7 @@ const Header = () => {
                   </li>
                 </ul>
               ) : null}
+
               {pathnames.includes("/index-2") &&
               !pathnames.includes("/index-11") &&
               !pathnames.includes("/index-5") &&
@@ -432,31 +577,32 @@ const Header = () => {
                   </li>
                 </ul>
               ) : null}
-              {(!pathnames.includes("/patient/search-doctor1") &&
+
+              {((!pathnames.includes("/patient/search-doctor1") &&
                 pathnames.includes("patient")) ||
               (pathnames.includes("Pharmacy") &&
-                !pathnames.includes("/Pharmacy/Pharmacy-index")) ? (
+                !pathnames.includes("/Pharmacy/Pharmacy-index"))) && user ? (
                 <>
                 <ul className="nav header-navbar-rht">
-                <li className="searchbar">
-                      <Link to="#" onClick={toggleSearch}>
+                  <li className="searchbar">
+                    <Link to="#" onClick={toggleSearch}>
                       <i className="feather icon-search" />
-                      </Link>
-                      <div className={
+                    </Link>
+                    <div className={
                       searchField
                         ? "togglesearch d-block"
                         : "togglesearch d-none"
-                    } >
-                        <form action={`${config}/patient/search-doctor1`}>
-                          <div className="input-group">
-                            <input type="text" className="form-control" />
-                            <button type="submit" className="btn">
-                              Search
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </li>
+                    }>
+                      <form action={`${config}/patient/search-doctor1`}>
+                        <div className="input-group">
+                          <input type="text" className="form-control" />
+                          <button type="submit" className="btn">
+                            Search
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </li>
                   <li className="header-theme noti-nav">
                     <Link
                       to="#"
@@ -476,8 +622,6 @@ const Header = () => {
                     </Link>
                   </li>
                   <Notification />
-                  
-                  {/* Messages */}
                   <li className="nav-item noti-nav me-3 pe-0">
                     <Link
                       to="/patient/patient-chat"
@@ -486,86 +630,39 @@ const Header = () => {
                       <i className="isax isax-message-2" />
                     </Link>
                   </li>
-                  {/* /Messages */}
-                  {/* Cart */}
                   <Chart />
-                  {/* /Cart */}
-                  {/* User Menu */}
-                  <li className="nav-item dropdown has-arrow logged-item">
-                    <a
-                      href="#"
-                      className="nav-link ps-0"
-                      data-bs-toggle="dropdown"
-                      aria-expanded="false"
-                    >
-                      <span className="user-img">
-                        <ImageWithBasePath
-                          className="rounded-circle"
-                          src="assets/img/doctors-dashboard/profile-06.jpg"
-                          width={31}
-                          alt="Darren Elder"
-                        />
-                      </span>
-                    </a>
-                    <div className="dropdown-menu dropdown-menu-end">
-                      <div className="user-header">
-                        <div className="avatar avatar-sm">
-                          <ImageWithBasePath
-                            src="assets/img/doctors-dashboard/profile-06.jpg"
-                            alt="User Image"
-                            className="avatar-img rounded-circle"
-                          />
-                        </div>
-                        <div className="user-text">
-                          <h6>Hendrita Hayes</h6>
-                          <p className="text-muted mb-0">Patient</p>
-                        </div>
-                      </div>
-                      <Link className="dropdown-item" to="/patient/dashboard">
-                        Dashboard
-                      </Link>
-                      <Link className="dropdown-item" to="/patient/profile">
-                        Profile Settings
-                      </Link>
-                      <a className="dropdown-item" href="/login">
-                        Logout
-                      </a>
-                    </div>
-                  </li>
-                  {/* /User Menu */}
+                  <UserMenu />
                 </ul>
                 </>
-              ) : pathnames.includes("doctor") &&
+              ) : (pathnames.includes("doctor") &&
                 !pathnames.includes("/doctor/doctor-register") &&
                 !pathnames.includes("/patient/search-doctor1") &&
                 !pathnames.includes("/pages/doctor-signup") &&
                 !pathnames.includes("/doctor-blog") &&
                 !pathnames.includes("/doctor-edit-blog") &&
                 !pathnames.includes("/doctor-pending-blog") &&
-                !pathnames.includes("/blog/doctor-add-blog") ? (
+                !pathnames.includes("/blog/doctor-add-blog")) && user ? (
                   <>
-
-                
                 <ul className="nav header-navbar-rht">
-                <li className="searchbar">
-                      <Link to="#" onClick={toggleSearch}>
+                  <li className="searchbar">
+                    <Link to="#" onClick={toggleSearch}>
                       <i className="feather icon-search" />
-                      </Link>
-                      <div className={
+                    </Link>
+                    <div className={
                       searchField
                         ? "togglesearch d-block"
                         : "togglesearch d-none"
-                    } >
-                        <form action={`${config}/patient/search-doctor1`}>
-                          <div className="input-group">
-                            <input type="text" className="form-control" />
-                            <button type="submit" className="btn">
-                              Search
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </li>
+                    }>
+                      <form action={`${config}/patient/search-doctor1`}>
+                        <div className="input-group">
+                          <input type="text" className="form-control" />
+                          <button type="submit" className="btn">
+                            Search
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </li>
                   <li className="header-theme noti-nav">
                     <Link
                       to="#"
@@ -585,8 +682,6 @@ const Header = () => {
                     </Link>
                   </li>
                   <Notification />
-                  
-                  {/* Messages */}
                   <li className="nav-item noti-nav me-3 pe-0">
                     <Link
                       to="/doctor/chat-doctor"
@@ -595,78 +690,32 @@ const Header = () => {
                       <i className="isax isax-message-2" />
                     </Link>
                   </li>
-                  {/* /Messages */}
-                  {/* Cart */}
                   <Chart />
-                  {/* /Cart */}
-                  {/* User Menu */}
-                  <li className="nav-item dropdown has-arrow logged-item">
-                    <a
-                      href="#"
-                      className="nav-link ps-0"
-                      data-bs-toggle="dropdown"
-                      aria-expanded="false"
-                    >
-                      <span className="user-img">
-                        <ImageWithBasePath
-                          className="rounded-circle"
-                          src="assets/img/doctors-dashboard/doctor-profile-img.jpg"
-                          width={31}
-                          alt="Darren Elder"
-                        />
-                      </span>
-                    </a>
-                    <div className="dropdown-menu dropdown-menu-end">
-                      <div className="user-header">
-                        <div className="avatar avatar-sm">
-                          <ImageWithBasePath
-                            src="assets/img/doctors-dashboard/doctor-profile-img.jpg"
-                            alt="User Image"
-                            className="avatar-img rounded-circle"
-                          />
-                        </div>
-                        <div className="user-text">
-                          <h6>Dr Edalin Hendry</h6>
-                          <p className="text-muted mb-0">Doctor</p>
-                        </div>
-                      </div>
-                      <a className="dropdown-item" href="/doctor/doctor-dashboard">
-                        Dashboard
-                      </a>
-                      <a className="dropdown-item" href="/doctor/profile-setting">
-                        Profile Settings
-                      </a>
-                      <a className="dropdown-item" href="/login">
-                        Logout
-                      </a>
-                    </div>
-                  </li>
-                  {/* /User Menu */}
+                  <UserMenu />
                 </ul>
-
                   </>
-              ) :  
-              <ul className="nav header-navbar-rht">
-              <li className="searchbar">
-                      <Link to="#" onClick={toggleSearch}>
+              ) : (
+                <ul className="nav header-navbar-rht">
+                  <li className="searchbar">
+                    <Link to="#" onClick={toggleSearch}>
                       <i className="feather icon-search" />
-                      </Link>
-                      <div className={
+                    </Link>
+                    <div className={
                       searchField
                         ? "togglesearch d-block"
                         : "togglesearch d-none"
-                    } >
-                        <form action={`${config}/patient/search-doctor1`}>
-                          <div className="input-group">
-                            <input type="text" className="form-control" />
-                            <button type="submit" className="btn">
-                              Search
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </li>
-                    <li className="header-theme noti-nav">
+                    }>
+                      <form action={`${config}/patient/search-doctor1`}>
+                        <div className="input-group">
+                          <input type="text" className="form-control" />
+                          <button type="submit" className="btn">
+                            Search
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </li>
+                  <li className="header-theme noti-nav">
                     <Link
                       to="#"
                       id="dark-mode-toggle"
@@ -684,25 +733,27 @@ const Header = () => {
                       <i className="isax isax-moon" />
                     </Link>
                   </li>
-                <li>
-                  <Link
-                    to="/login"
-                    className="btn btn-md btn-primary-gradient d-inline-flex align-items-center rounded-pill"
-                  >
-                    <i className="isax isax-lock-1 me-1" />
-                    Sign Up
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/register"
-                    className="btn btn-md btn-dark d-inline-flex align-items-center rounded-pill"
-                  >
-                    <i className="isax isax-user-tick me-1" />
-                    Register
-                  </Link>
-                </li>
-              </ul>}
+                  <li>
+                    <Link
+                      to="/login"
+                      className="btn btn-md btn-primary-gradient d-inline-flex align-items-center rounded-pill"
+                    >
+                      <i className="isax isax-lock-1 me-1" />
+                      Sign Up
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/register"
+                      className="btn btn-md btn-dark d-inline-flex align-items-center rounded-pill"
+                    >
+                      <i className="isax isax-user-tick me-1" />
+                      Register
+                    </Link>
+                  </li>
+                </ul>
+              )}
+
               {pathnames.includes("/index-8") ? (
                 <ul className="nav header-navbar-rht">
                   <li className="login-link">
@@ -750,6 +801,7 @@ const Header = () => {
                   </li>
                 </ul>
               ) : null}
+
               {pathnames.includes("/index-11") ? (
                 <ul className="nav header-navbar-rht">
                   <li className="login-link">
@@ -794,21 +846,6 @@ const Header = () => {
                   </li>
                 </ul>
               ) : null}
-
-              {/* {pathnames == "/react/template/index-13" ? (
-                <ul class="nav header-navbar-rht">
-                  <li class="register-btn">
-                    <Link to="/pages/login-email" class="btn log-btn">
-                      <i class="feather-lock"></i>Login
-                    </Link>
-                  </li>
-                  <li class="register-btn">
-                    <Link to="/signup" class="btn reg-btn">
-                      <i class="feather-user"></i>Sign Up
-                    </Link>
-                  </li>
-                </ul>
-              ) : null} */}
             </nav>
           </div>
         </header>

@@ -11,15 +11,14 @@ const BookingWizard = () => {
     const { doctorId } = useParams();
     const history = useHistory();
 
-    // State management
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(true);
     const [doctor, setDoctor] = useState(null);
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedSlot, setSelectedSlot] = useState(null);
+    const [bookingResult, setBookingResult] = useState(null);
 
-    // Form data
     const [bookingData, setBookingData] = useState({
         selectedService: null,
         selectedServices: [],
@@ -37,7 +36,6 @@ const BookingWizard = () => {
 
     const { token } = theme.useToken();
 
-    // Load doctor details and user info on mount
     useEffect(() => {
         if (doctorId) {
             loadDoctorDetails();
@@ -45,7 +43,6 @@ const BookingWizard = () => {
         }
     }, [doctorId]);
 
-    // Load available slots when date is selected
     useEffect(() => {
         if (selectedDate && doctor) {
             loadAvailableSlots(selectedDate);
@@ -108,7 +105,6 @@ const BookingWizard = () => {
 
     const handleNext = () => {
         if (validateCurrentStep()) {
-            // Skip step 5 (payment) - go directly from step 4 to booking
             if (currentStep === 4) {
                 handleBookAppointment();
             } else {
@@ -161,24 +157,22 @@ const BookingWizard = () => {
         try {
             setLoading(true);
 
-            // Create appointment with PENDING status (payment will be integrated later)
+            // Create appointment request with PENDING_APPROVAL status
             const appointmentRequest = {
                 doctorId: doctorId,
                 appointmentDate: moment(selectedDate).format('YYYY-MM-DD'),
                 startTime: selectedSlot.startTime,
                 type: bookingData.appointmentType,
                 reasonForVisit: bookingData.patientInfo.reasonForVisit,
-                symptoms: bookingData.patientInfo.symptoms,
-                // When payment gateway is integrated, add:
-                // paymentStatus: 'COMPLETED',
-                // paymentId: paymentResponse.id,
-                // transactionId: paymentResponse.transactionId
+                symptoms: bookingData.patientInfo.symptoms || null,
+                specialization: bookingData.selectedService
             };
 
             const response = await apiService.post('/appointments', appointmentRequest);
 
             if (response.data.success) {
-                setCurrentStep(5); // Move to confirmation (now step 5 instead of 6)
+                setBookingResult(response.data.data);
+                setCurrentStep(5); // Move to confirmation
             }
         } catch (error) {
             console.error('Error booking appointment:', error);
@@ -278,7 +272,6 @@ const BookingWizard = () => {
                     <div className="row">
                         <div className="col-lg-9 mx-auto">
                             <div className="booking-wizard">
-                                {/* Updated progress bar - now 5 steps instead of 6 */}
                                 <ul className="form-wizard-steps d-sm-flex align-items-center justify-content-center" id="progressbar2">
                                     {[1, 2, 3, 4, 5].map(step => (
                                         <li key={step} className={currentStep === step ? 'progress-active' : currentStep > step ? 'progress-activated' : ''}>
@@ -685,6 +678,7 @@ const BookingWizard = () => {
                                                                 <input
                                                                     type="text"
                                                                     className="form-control"
+                                                                    placeholder="e.g., Fever, Headache"
                                                                     value={bookingData.patientInfo.symptoms}
                                                                     onChange={(e) => setBookingData(prev => ({
                                                                         ...prev,
@@ -699,6 +693,7 @@ const BookingWizard = () => {
                                                                 <textarea
                                                                     className="form-control"
                                                                     rows={3}
+                                                                    placeholder="Please describe your health concern..."
                                                                     value={bookingData.patientInfo.reasonForVisit}
                                                                     onChange={(e) => setBookingData(prev => ({
                                                                         ...prev,
@@ -725,11 +720,11 @@ const BookingWizard = () => {
                                                     {loading ? (
                                                         <>
                                                             <span className="spinner-border spinner-border-sm me-2" />
-                                                            Booking...
+                                                            Submitting Request...
                                                         </>
                                                     ) : (
                                                         <>
-                                                            Confirm Booking
+                                                            Submit Request
                                                             <i className="isax isax-arrow-right-3 ms-1" />
                                                         </>
                                                     )}
@@ -739,72 +734,7 @@ const BookingWizard = () => {
                                     </div>
                                 )}
 
-                                {/* PAYMENT STEP (Step 5) - COMMENTED OUT */}
-                                {/*
-                                    TODO: Integrate Payment Gateway
-                                    When integrating payment:
-                                    1. Uncomment this section and update the step numbers in the progress bar (6 steps instead of 5)
-                                    2. Update handleNext() in step 4 to go to step 5 (payment) instead of directly booking
-                                    3. Move handleBookAppointment() call to payment confirmation
-                                    4. Add payment processing logic:
-                                       - Initialize payment gateway (Stripe/Razorpay/PayPal)
-                                       - Handle payment form submission
-                                       - Get payment response with transaction ID
-                                    5. Update appointmentRequest in handleBookAppointment() to include:
-                                       - paymentStatus: 'COMPLETED'
-                                       - paymentId: paymentResponse.id
-                                       - transactionId: paymentResponse.transactionId
-                                       - amount: calculatedAmount
-                                    6. Add error handling for failed payments
-                                    7. Update backend to verify payment before confirming appointment
-                                */}
-                                {/*
-                                {currentStep === 5 && (
-                                    <div className="card booking-card mt-3">
-                                        <div className="card-body booking-body">
-                                            <div className="row">
-                                                <div className="col-lg-6 d-flex">
-                                                    <div className="card flex-fill mb-3 mb-lg-0">
-                                                        <div className="card-body">
-                                                            <h6 className="mb-3">Payment Gateway</h6>
-                                                            // Add payment gateway integration here
-                                                            // - Stripe Elements
-                                                            // - Razorpay Checkout
-                                                            // - PayPal SDK
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="col-lg-6 d-flex">
-                                                    <div className="card flex-fill mb-0">
-                                                        <div className="card-body">
-                                                            <h6 className="mb-3">Booking Summary</h6>
-                                                            // Display booking details and amount
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="card-footer">
-                                            <div className="d-flex align-items-center justify-content-between">
-                                                <button onClick={handlePrev} className="btn btn-md btn-dark inline-flex align-items-center rounded-pill">
-                                                    <i className="isax isax-arrow-left-2 me-1" />
-                                                    Back
-                                                </button>
-                                                <button
-                                                    onClick={handleBookAppointment}
-                                                    className="btn btn-md btn-primary-gradient inline-flex align-items-center rounded-pill"
-                                                    disabled={loading}
-                                                >
-                                                    {loading ? 'Processing...' : 'Confirm & Pay'}
-                                                    <i className="isax isax-arrow-right-3 ms-1" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                */}
-
-                                {/* Step 5: Confirmation (Previously Step 6) */}
+                                {/* Step 5: Confirmation - Pending Approval */}
                                 {currentStep === 5 && (
                                     <div className="card booking-card mt-3">
                                         <div className="card-body booking-body pb-1">
@@ -814,8 +744,8 @@ const BookingWizard = () => {
                                                         <div className="card">
                                                             <div className="card-header">
                                                                 <h5 className="d-flex align-items-center">
-                                                                    <i className="isax isax-tick-circle5 text-success me-2" />
-                                                                    Booking Confirmed
+                                                                    <i className="isax isax-clock text-warning me-2" />
+                                                                    Appointment Request Submitted
                                                                 </h5>
                                                             </div>
                                                             <div className="card-header d-flex align-items-center">
@@ -823,13 +753,14 @@ const BookingWizard = () => {
                                                                     <ImageWithBasePath src={doctor.profileImage || "assets/img/clients/client-16.jpg"} alt="" />
                                                                 </span>
                                                                 <p className="mb-0">
-                                                                    Your Booking has been Confirmed with <span className="text-dark">{fullName}</span>. Please be on time, at least <span className="text-dark">15 minutes</span> before the appointment time.
+                                                                    Your appointment request has been sent to <span className="text-dark">{fullName}</span>.
+                                                                    The doctor will review your request and you'll receive a notification once it's approved.
                                                                 </p>
                                                             </div>
                                                             <div className="card-body pb-1">
                                                                 <div className="d-flex align-items-center justify-content-between mb-3">
-                                                                    <h6>Booking Info</h6>
-                                                                    <span className="badge bg-warning">Payment Pending</span>
+                                                                    <h6>Request Details</h6>
+                                                                    <span className="badge bg-warning">Pending Doctor Approval</span>
                                                                 </div>
                                                                 <div className="row">
                                                                     <div className="col-md-6">
@@ -848,9 +779,9 @@ const BookingWizard = () => {
                                                                     </div>
                                                                     <div className="col-md-6">
                                                                         <div className="mb-3">
-                                                                            <label className="form-label">Appointment type</label>
+                                                                            <label className="form-label">Appointment Type</label>
                                                                             <div className="form-plain-text">
-                                                                                {bookingData.appointmentType === 'IN_PERSON' && 'Clinic'}
+                                                                                {bookingData.appointmentType === 'IN_PERSON' && 'Clinic Visit'}
                                                                                 {bookingData.appointmentType === 'VIDEO' && 'Video Call'}
                                                                                 {bookingData.appointmentType === 'PHONE' && 'Phone Call'}
                                                                             </div>
@@ -859,23 +790,36 @@ const BookingWizard = () => {
                                                                     {bookingData.selectedClinic && (
                                                                         <div className="col-md-6">
                                                                             <div className="mb-3">
-                                                                                <label className="form-label">Clinic Name & Location</label>
+                                                                                <label className="form-label">Clinic</label>
                                                                                 <div className="form-plain-text">{bookingData.selectedClinic.name}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {bookingResult?.id && (
+                                                                        <div className="col-md-6">
+                                                                            <div className="mb-3">
+                                                                                <label className="form-label">Request ID</label>
+                                                                                <div className="form-plain-text">#{bookingResult.id.substring(0, 8)}</div>
                                                                             </div>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                                 <div className="alert alert-info mt-3">
                                                                     <i className="fa fa-info-circle me-2" />
-                                                                    Payment is pending. You can complete the payment from your appointments page or pay at the clinic.
+                                                                    <strong>What happens next?</strong>
+                                                                    <ul className="mb-0 mt-2">
+                                                                        <li>The doctor will review your appointment request</li>
+                                                                        <li>You'll receive an email/SMS notification once approved</li>
+                                                                        <li>You can track the status in "My Appointments"</li>
+                                                                    </ul>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         <div className="card">
                                                             <div className="card-body d-flex align-items-center justify-content-between">
                                                                 <div>
-                                                                    <h6 className="mb-1">Need Our Assistance?</h6>
-                                                                    <p className="mb-0">Call us in case you face any issue with booking or cancellation</p>
+                                                                    <h6 className="mb-1">Need Assistance?</h6>
+                                                                    <p className="mb-0">Contact us if you have any questions about your request</p>
                                                                 </div>
                                                                 <Link to="#" className="btn btn-light rounded-pill">
                                                                     <i className="isax isax-call5 me-1" />
@@ -889,19 +833,21 @@ const BookingWizard = () => {
                                                     <div className="card flex-fill">
                                                         <div className="card-body d-flex flex-column justify-content-between">
                                                             <div className="text-center">
-                                                                <h6 className="fs-14 mb-2">Booking Confirmed</h6>
-                                                                <span className="booking-id-badge mb-3">Success</span>
+                                                                <h6 className="fs-14 mb-2">Request Submitted</h6>
+                                                                <span className="booking-id-badge mb-3 bg-warning">Pending Approval</span>
                                                                 <span className="d-block mb-3">
-                                                                    <i className="fa fa-check-circle text-success" style={{ fontSize: '80px' }} />
+                                                                    <i className="fa fa-clock text-warning" style={{ fontSize: '80px' }} />
                                                                 </span>
-                                                                <p>Your appointment has been successfully booked. Payment is pending.</p>
+                                                                <p>Your appointment request is waiting for doctor's approval. You'll be notified soon!</p>
                                                             </div>
                                                             <div>
-                                                                <Link to="/patient/appointments" className="btn w-100 mb-3 btn-md btn-dark inline-flex align-items-center rounded-pill justify-content-center">
+                                                                <Link to="/patient/patient-appointments" className="btn w-100 mb-3 btn-md btn-dark inline-flex align-items-center rounded-pill justify-content-center">
+                                                                    <i className="isax isax-calendar-1 me-1" />
                                                                     View My Appointments
                                                                 </Link>
                                                                 <Link to="/patient/doctor-grid" className="btn w-100 btn-md btn-primary-gradient inline-flex align-items-center rounded-pill justify-content-center">
-                                                                    Book Another Appointment
+                                                                    <i className="isax isax-search-normal-1 me-1" />
+                                                                    Find Another Doctor
                                                                 </Link>
                                                             </div>
                                                         </div>
@@ -913,8 +859,8 @@ const BookingWizard = () => {
                                 )}
                             </div>
 
-                            <div className="text-center">
-                                <p className="mb-0">Copyright © 2025. All Rights Reserved, Doccure</p>
+                            <div className="text-center mt-4">
+                                <p className="mb-0">Copyright © 2025. All Rights Reserved, DocNet360</p>
                             </div>
                         </div>
                     </div>

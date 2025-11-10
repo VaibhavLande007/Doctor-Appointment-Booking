@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useHistory } from 'react-router-dom'
 import ImageWithBasePath from '../../../../core/img/imagewithbasebath'
 import "slick-carousel/slick/slick.css";
+import { doctorprofileimg } from "../../imagepath";
 import "slick-carousel/slick/slick-theme.css";
 import Slider from "react-slick";
 import apiService from '../../../../config/apiService';

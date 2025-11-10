@@ -262,7 +262,7 @@ const Header = () => {
                       className="btn btn-md btn-primary-gradient d-inline-flex align-items-center rounded-pill"
                     >
                       <i className="isax isax-lock-1 me-1" />
-                      Sign Up
+                      Sign In
                     </Link>
                   </li>
                   <li>

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 import { doctorprofileimg } from "../../imagepath";
 import Select from 'react-select'
+import apiService from "../../../../config/apiService";
 
 const DoctorSidebar = () => {
   let pathnames = window.location.pathname;
+  const history = useHistory();
 
   // State to store user data
   const [userData, setUserData] = useState({
@@ -35,6 +37,34 @@ const DoctorSidebar = () => {
       }
     }
   }, []);
+
+  // Logout handler
+  const handleLogout = async (e) => {
+    e.preventDefault();
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Call backend logout endpoint (optional)
+      if (token) {
+        await apiService.post('/auth/logout');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear all stored data
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('rememberedEmail');
+
+      // Clear authorization header
+      delete apiService.defaults.headers.common['Authorization'];
+
+      // Redirect to login page
+      history.push('/login');
+    }
+  };
 
   const availablity = [
     { value: 'I am Available Now', label: 'I am Available Now' },
@@ -190,10 +220,10 @@ const DoctorSidebar = () => {
                 </Link>
               </li>
               <li className={pathnames.includes("/login") ? 'active' : ''}>
-                <Link to="/login">
+                <a href="/login" onClick={handleLogout}>
                   <i className="isax isax-logout me-2"></i>
                   <span>Logout</span>
-                </Link>
+                </a>
               </li>
             </ul>
           </nav>

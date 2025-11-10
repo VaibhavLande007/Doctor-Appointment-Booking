@@ -1276,8 +1276,8 @@ const CompleteDoctorProfile = (props) => {
                   <Link to="/doctor/doctor-dashboard" className="btn btn-gray me-1">
                     Cancel
                   </Link>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn btn-primary prime-btn"
                     disabled={loading}
                   >

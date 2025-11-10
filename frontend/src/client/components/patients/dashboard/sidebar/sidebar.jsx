@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 import { doctordashboardprofile06 } from "../../../imagepath";
+import apiService from "../../../../../config/apiService";
 
 export const DashboardSidebar = () => {
   const pathnames = window.location.pathname;
+  const history = useHistory();
 
   // State to store user data
   const [userData, setUserData] = useState({
@@ -56,6 +58,34 @@ export const DashboardSidebar = () => {
       }
     }
   }, []);
+
+  // Logout handler
+  const handleLogout = async (e) => {
+    e.preventDefault();
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Call backend logout endpoint using apiService
+      if (token) {
+        await apiService.post('/auth/logout');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear all stored data
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('rememberedEmail');
+
+      // Clear authorization header from apiService
+      delete apiService.defaults.headers.common['Authorization'];
+
+      // Redirect to login page
+      history.push('/login');
+    }
+  };
 
   // Get full name
   const fullName = `${userData.firstName} ${userData.lastName}`.trim() || 'Patient';
@@ -158,10 +188,10 @@ export const DashboardSidebar = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/login">
+                <a href="/login" onClick={handleLogout}>
                   <i className="isax isax-logout"></i>
                   <span>Logout</span>
-                </Link>
+                </a>
               </li>
             </ul>
           </nav>
