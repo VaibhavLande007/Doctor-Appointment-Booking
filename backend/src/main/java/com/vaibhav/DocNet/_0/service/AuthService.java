@@ -135,4 +135,10 @@ public class AuthService {
                 .profileImage(user.getProfileImage())
                 .build();
     }
+    public void logout(Authentication authentication) {
+        if (authentication != null) {
+            SecurityContextHolder.clearContext();
+            log.info("User logged out successfully");
+        }
+    }
 }

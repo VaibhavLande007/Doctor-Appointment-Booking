@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -38,5 +39,14 @@ public class AuthController {
 
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Logout user")
+    public ResponseEntity<ApiResponse<Void>> logout(Authentication authentication) {
+        if (authentication != null) {
+            authService.logout(authentication);
+        }
+        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
     }
 }

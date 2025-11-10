@@ -68,4 +68,12 @@ public class NotificationService {
     public long getUnreadCount(String userId) {
         return notificationRepository.countByUserIdAndReadFalse(userId);
     }
+    public void sendAppointmentRequestToDoctor(Appointment appointment) {
+        // Send email/SMS/push notification to doctor
+        // "New appointment request from [Patient Name]"
+    }
+
+    public void sendAppointmentRejection(Appointment appointment, String reason) {
+        // Send to patient: "Your appointment request was not approved"
+    }
 }

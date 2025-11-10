@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -44,6 +45,7 @@ public class Appointment {
     private String reasonForVisit;
     private String symptoms;
     private String notes;
+    private String rejectionReason;
 
     private String prescriptionId;
     private String paymentId;
@@ -60,11 +62,17 @@ public class Appointment {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
+    @Transient
+    private User patientInfo;
+
+    @Transient
+    private User doctorInfo;
+
     public enum AppointmentType {
         IN_PERSON, VIDEO, PHONE
     }
 
     public enum AppointmentStatus {
-        SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+        PENDING_APPROVAL, SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
     }
 }

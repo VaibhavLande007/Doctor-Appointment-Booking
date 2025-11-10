@@ -1,9 +1,12 @@
 package com.vaibhav.DocNet._0.controller;
 
+import com.vaibhav.DocNet._0.exception.ResourceNotFoundException;
 import com.vaibhav.DocNet._0.model.dto.request.CreateAppointmentRequest;
 import com.vaibhav.DocNet._0.model.dto.response.ApiResponse;
 import com.vaibhav.DocNet._0.model.entity.Appointment;
+import com.vaibhav.DocNet._0.model.entity.Doctor;
 import com.vaibhav.DocNet._0.model.entity.TimeSlot;
+import com.vaibhav.DocNet._0.repository.DoctorRepository;
 import com.vaibhav.DocNet._0.security.CustomUserDetails;
 import com.vaibhav.DocNet._0.service.AppointmentService;
 import com.vaibhav.DocNet._0.service.TimeSlotService;
@@ -32,7 +35,7 @@ public class AppointmentController {
 
     private final AppointmentService appointmentService;
     private final TimeSlotService timeSlotService;
-
+    private final DoctorRepository doctorRepository;
     @PostMapping
     @PreAuthorize("hasRole('PATIENT')")
     @Operation(summary = "Book an appointment")
@@ -60,15 +63,21 @@ public class AppointmentController {
 
     @GetMapping("/doctor/appointments")
     @PreAuthorize("hasRole('DOCTOR')")
-    @Operation(summary = "Get doctor appointments")
     public ResponseEntity<ApiResponse<Page<Appointment>>> getDoctorAppointments(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Appointment.AppointmentStatus status) { // ADD THIS
 
-        // Need to get doctor ID from userDetails - implement this
-        Page<Appointment> appointments = appointmentService.getDoctorAppointments(
-                "doctorId", page, size);
+        String doctorId = getDoctorIdFromUser(userDetails.getId());
+        Page<Appointment> appointments;
+
+        if (status != null) {
+            appointments = appointmentService.getDoctorAppointmentsByStatus(doctorId, status, page, size);
+        } else {
+            appointments = appointmentService.getDoctorAppointments(doctorId, page, size);
+        }
+
         return ResponseEntity.ok(ApiResponse.success("Appointments retrieved", appointments));
     }
 
@@ -108,5 +117,78 @@ public class AppointmentController {
 
         List<TimeSlot> slots = timeSlotService.getAvailableSlots(doctorId, date);
         return ResponseEntity.ok(ApiResponse.success("Available slots retrieved", slots));
+    }
+    @GetMapping("/doctor/pending")
+    @PreAuthorize("hasRole('DOCTOR')")
+    @Operation(summary = "Get pending appointment requests")
+    public ResponseEntity<ApiResponse<Page<Appointment>>> getPendingAppointments(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        // Get doctor ID from userDetails
+        String doctorId = getDoctorIdFromUser(userDetails.getId());
+        Page<Appointment> appointments = appointmentService.getPendingAppointments(
+                doctorId, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Pending appointments retrieved", appointments));
+    }
+
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('DOCTOR')")
+    @Operation(summary = "Approve appointment request")
+    public ResponseEntity<ApiResponse<Appointment>> approveAppointment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable String id) {
+
+        String doctorId = getDoctorIdFromUser(userDetails.getId());
+        Appointment appointment = appointmentService.approveAppointment(id, doctorId);
+        return ResponseEntity.ok(ApiResponse.success("Appointment approved", appointment));
+    }
+
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('DOCTOR')")
+    @Operation(summary = "Reject appointment request")
+    public ResponseEntity<ApiResponse<Appointment>> rejectAppointment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable String id,
+            @RequestParam(required = false) String reason) {
+
+        String doctorId = getDoctorIdFromUser(userDetails.getId());
+        Appointment appointment = appointmentService.rejectAppointment(
+                id, doctorId, reason);
+        return ResponseEntity.ok(ApiResponse.success("Appointment rejected", appointment));
+    }
+
+    // Helper method to get doctor ID from user
+    private String getDoctorIdFromUser(String userId) {
+        // Implement based on your user-doctor relationship
+        Doctor doctor = doctorRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", userId));
+        return doctor.getId();
+    }
+
+    @DeleteMapping("/slots/{id}")
+    @PreAuthorize("hasRole('DOCTOR')")
+    @Operation(summary = "Delete a time slot")
+    public ResponseEntity<ApiResponse<Void>> deleteTimeSlot(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable String id) {
+
+        String doctorId = getDoctorIdFromUser(userDetails.getId());
+        timeSlotService.deleteTimeSlot(id, doctorId);
+        return ResponseEntity.ok(ApiResponse.success("Time slot deleted", null));
+    }
+
+    @DeleteMapping("/slots/bulk")
+    @PreAuthorize("hasRole('DOCTOR')")
+    @Operation(summary = "Delete multiple time slots")
+    public ResponseEntity<ApiResponse<Void>> deleteTimeSlots(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody List<String> slotIds) {
+
+        String doctorId = getDoctorIdFromUser(userDetails.getId());
+        timeSlotService.deleteTimeSlots(slotIds, doctorId);
+        return ResponseEntity.ok(ApiResponse.success(
+                String.format("%d time slots deleted", slotIds.size()), null));
     }
 }

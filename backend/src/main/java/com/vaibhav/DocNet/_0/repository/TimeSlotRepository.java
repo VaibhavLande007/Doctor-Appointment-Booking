@@ -20,4 +20,9 @@ public interface TimeSlotRepository extends MongoRepository<TimeSlot, String> {
     Optional<TimeSlot> findByDoctorIdAndDateAndStartTime(String doctorId, LocalDate date, LocalTime startTime);
 
     void deleteByDoctorIdAndDateBefore(String doctorId, LocalDate date);
+
+    void deleteByDoctorIdAndDateAfter(String doctorId, LocalDate date);
+
+    void deleteByDoctorIdAndDate(String doctorId, LocalDate date);
+
 }

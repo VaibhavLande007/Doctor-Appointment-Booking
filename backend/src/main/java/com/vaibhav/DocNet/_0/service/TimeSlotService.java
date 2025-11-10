@@ -1,5 +1,6 @@
 package com.vaibhav.DocNet._0.service;
 
+import com.vaibhav.DocNet._0.exception.ResourceNotFoundException;
 import com.vaibhav.DocNet._0.model.entity.Doctor;
 import com.vaibhav.DocNet._0.model.entity.TimeSlot;
 import com.vaibhav.DocNet._0.repository.DoctorRepository;
@@ -106,6 +107,44 @@ public class TimeSlotService {
         LocalDate today = LocalDate.now();
         for (int i = 0; i < days; i++) {
             LocalDate date = today.plusDays(i);
+            generateTimeSlots(doctorId, date);
+        }
+    }
+
+    @Transactional
+    public void deleteTimeSlot(String slotId, String doctorId) {
+        TimeSlot slot = timeSlotRepository.findById(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("TimeSlot", "id", slotId));
+
+        // Verify the slot belongs to this doctor
+        if (!slot.getDoctorId().equals(doctorId)) {
+            throw new RuntimeException("Unauthorized to delete this time slot");
+        }
+
+        // Prevent deletion of booked slots
+        if (slot.getAppointmentId() != null) {
+            throw new RuntimeException("Cannot delete booked time slot");
+        }
+
+        timeSlotRepository.deleteById(slotId);
+        log.info("Deleted time slot: {} for doctor: {}", slotId, doctorId);
+    }
+
+    @Transactional
+    public void deleteTimeSlots(List<String> slotIds, String doctorId) {
+        for (String slotId : slotIds) {
+            deleteTimeSlot(slotId, doctorId);
+        }
+    }
+
+    @Transactional
+    public void regenerateSlots(String doctorId, LocalDate startDate, int days) {
+        // Delete existing future slots
+        timeSlotRepository.deleteByDoctorIdAndDateAfter(doctorId, startDate.minusDays(1));
+
+        // Generate new slots
+        for (int i = 0; i < days; i++) {
+            LocalDate date = startDate.plusDays(i);
             generateTimeSlots(doctorId, date);
         }
     }
